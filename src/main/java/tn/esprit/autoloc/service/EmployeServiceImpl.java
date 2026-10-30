@@ -3,8 +3,11 @@ package tn.esprit.autoloc.service;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import tn.esprit.autoloc.domain.Agence;
 import tn.esprit.autoloc.domain.Employe;
 import tn.esprit.autoloc.exception.ResourceNotFoundException;
+import tn.esprit.autoloc.repository.IAgenceRepository;
 import tn.esprit.autoloc.repository.IEmployeRepository;
 
 @Service
@@ -12,12 +15,13 @@ import tn.esprit.autoloc.repository.IEmployeRepository;
 public class EmployeServiceImpl implements IEmployeService {
 
     private final IEmployeRepository employeRepository;
+    private final IAgenceRepository agenceRepository;
 
     @Override
     public Employe create(Employe entite) {
         if (entite.getIdEmploye() != null) {
             throw new IllegalArgumentException(
-                    "Un nouveau employe ne doit pas avoir d'identifiant");
+                    "Un nouvel employe ne doit pas avoir d'identifiant");
         }
         verifier(entite);
         return employeRepository.save(entite);
@@ -50,6 +54,31 @@ public class EmployeServiceImpl implements IEmployeService {
             throw new ResourceNotFoundException("Employe", id);
         }
         employeRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional
+    public Employe desaffecterEmploye(Long idEmploye) {
+        Employe employe = findById(idEmploye);
+        if (employe.getAgence() == null) {
+            throw new IllegalArgumentException("Cet employe n'est affecte a aucune agence");
+        }
+        employe.setAgence(null);
+        return employeRepository.save(employe);
+    }
+
+    @Override
+    @Transactional
+    public Employe affecterEmploye(Long idEmploye, Long idAgence) {
+        Employe employe = findById(idEmploye);
+        Agence agence = agenceRepository.findById(idAgence)
+                .orElseThrow(() -> new ResourceNotFoundException("Agence", idAgence));
+        if (employe.getAgence() != null) {
+            throw new IllegalArgumentException(
+                    "Cet employe est deja affecte a une agence : il faut d'abord le desaffecter");
+        }
+        employe.setAgence(agence);
+        return employeRepository.save(employe);
     }
 
     private void verifier(Employe entite) {

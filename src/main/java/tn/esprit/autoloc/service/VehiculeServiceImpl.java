@@ -3,9 +3,14 @@ package tn.esprit.autoloc.service;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import tn.esprit.autoloc.domain.Agence;
+import tn.esprit.autoloc.domain.Equipement;
 import tn.esprit.autoloc.domain.Vehicule;
 import tn.esprit.autoloc.exception.DuplicateResourceException;
 import tn.esprit.autoloc.exception.ResourceNotFoundException;
+import tn.esprit.autoloc.repository.IAgenceRepository;
+import tn.esprit.autoloc.repository.IEquipementRepository;
 import tn.esprit.autoloc.repository.IVehiculeRepository;
 
 @Service
@@ -13,6 +18,8 @@ import tn.esprit.autoloc.repository.IVehiculeRepository;
 public class VehiculeServiceImpl implements IVehiculeService {
 
     private final IVehiculeRepository vehiculeRepository;
+    private final IAgenceRepository agenceRepository;
+    private final IEquipementRepository equipementRepository;
 
     @Override
     public Vehicule create(Vehicule entite) {
@@ -56,6 +63,49 @@ public class VehiculeServiceImpl implements IVehiculeService {
             throw new ResourceNotFoundException("Vehicule", id);
         }
         vehiculeRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional
+    public Vehicule affecterVehicule(Long idVehicule, Long idAgence) {
+        Vehicule vehicule = findById(idVehicule);
+        Agence agence = agenceRepository.findById(idAgence)
+                .orElseThrow(() -> new ResourceNotFoundException("Agence", idAgence));
+        if (vehicule.getAgence() != null && vehicule.getAgence().getIdAgence().equals(idAgence)) {
+            throw new IllegalArgumentException("Ce vehicule est deja affecte a cette agence");
+        }
+        vehicule.setAgence(agence);
+        return vehiculeRepository.save(vehicule);
+    }
+
+    @Override
+    @Transactional
+    public Vehicule affecterEquipement(Long idVehicule, Long idEquipement) {
+        Vehicule vehicule = findById(idVehicule);
+        Equipement equipement = equipementRepository.findById(idEquipement)
+                .orElseThrow(() -> new ResourceNotFoundException("Equipement", idEquipement));
+        boolean dejaInstalle = vehicule.getEquipements().stream()
+                .anyMatch(e -> e.getIdEquipement().equals(idEquipement));
+        if (dejaInstalle) {
+            throw new IllegalArgumentException("Cet equipement est deja installe sur ce vehicule");
+        }
+        vehicule.getEquipements().add(equipement);
+        return vehiculeRepository.save(vehicule);
+    }
+
+    @Override
+    @Transactional
+    public Vehicule desaffecterEquipement(Long idVehicule, Long idEquipement) {
+        Vehicule vehicule = findById(idVehicule);
+        if (!equipementRepository.existsById(idEquipement)) {
+            throw new ResourceNotFoundException("Equipement", idEquipement);
+        }
+        boolean retire = vehicule.getEquipements()
+                .removeIf(e -> e.getIdEquipement().equals(idEquipement));
+        if (!retire) {
+            throw new IllegalArgumentException("Cet equipement n'est pas installe sur ce vehicule");
+        }
+        return vehiculeRepository.save(vehicule);
     }
 
     private void verifier(Vehicule entite) {
