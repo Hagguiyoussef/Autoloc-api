@@ -4,6 +4,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import tn.esprit.autoloc.domain.Vehicule;
+import tn.esprit.autoloc.exception.DuplicateResourceException;
 import tn.esprit.autoloc.exception.ResourceNotFoundException;
 import tn.esprit.autoloc.repository.IVehiculeRepository;
 
@@ -20,6 +21,7 @@ public class VehiculeServiceImpl implements IVehiculeService {
                     "Un nouveau vehicule ne doit pas avoir d'identifiant");
         }
         verifier(entite);
+        verifierUnicite(entite, null);
         return vehiculeRepository.save(entite);
     }
 
@@ -38,6 +40,7 @@ public class VehiculeServiceImpl implements IVehiculeService {
     public Vehicule update(Long id, Vehicule entite) {
         verifier(entite);
         Vehicule existant = findById(id);
+        verifierUnicite(entite, id);
         existant.setImmatriculation(entite.getImmatriculation());
         existant.setMarque(entite.getMarque());
         existant.setModele(entite.getModele());
@@ -58,6 +61,18 @@ public class VehiculeServiceImpl implements IVehiculeService {
     private void verifier(Vehicule entite) {
         if (entite.getTarifJournalier() == null || entite.getTarifJournalier().signum() < 0) {
             throw new IllegalArgumentException("Le tarif journalier ne peut pas etre negatif");
+        }
+    }
+
+    private void verifierUnicite(Vehicule entite, Long id) {
+        String immatriculation = entite.getImmatriculation();
+        if (immatriculation != null && !immatriculation.isBlank()) {
+            boolean prise = id == null
+                    ? vehiculeRepository.existsByImmatriculationIgnoreCase(immatriculation)
+                    : vehiculeRepository.existsByImmatriculationIgnoreCaseAndIdVehiculeNot(immatriculation, id);
+            if (prise) {
+                throw new DuplicateResourceException("Cette immatriculation est deja utilisee par un autre vehicule");
+            }
         }
     }
 }
