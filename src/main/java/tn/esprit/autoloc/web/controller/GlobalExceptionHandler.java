@@ -1,9 +1,11 @@
 package tn.esprit.autoloc.web.controller;
 
 import java.time.LocalDateTime;
+import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import tn.esprit.autoloc.exception.DuplicateResourceException;
@@ -20,6 +22,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErreurApi> handleBadRequest(IllegalArgumentException ex) {
         return reponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErreurApi> handleValidation(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(erreur -> erreur.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        return reponse(HttpStatus.BAD_REQUEST, message);
     }
 
     @ExceptionHandler(DuplicateResourceException.class)
